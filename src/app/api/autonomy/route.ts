@@ -260,7 +260,7 @@ Body: [email body — use real company name]`,
     // ── Persist to campaign pipeline ─────────────────────────────
     if (leads.length > 0) {
       try {
-        const campaign = createCampaign(
+        const campaign = await createCampaign(
           `${niche} — ${new Date().toLocaleDateString()}`,
           yourService || niche,
           niche,
