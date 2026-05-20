@@ -25,7 +25,7 @@ export const PROVIDERS: Record<string, {
     name: "Nous Hermes",
     baseUrl: "https://openrouter.ai/api/v1",
     apiKey: process.env.OPENROUTER_API_KEY || process.env.NOUS_HERMES_API_KEY || "",
-    model: "nousresearch/hermes-3-llama-3.1-405b:free",
+    model: "nousresearch/hermes-3-llama-3.1-70b",
     color: "#a855f7",
     headers: {
       "HTTP-Referer": (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000") as string,
@@ -102,6 +102,13 @@ export async function chat(
 
   if (!res.ok) {
     const err = await res.text();
+
+    // ── Auto-fallback to DeepSeek if primary provider fails ──
+    if (provider !== "deepseek" && PROVIDERS.deepseek.apiKey) {
+      console.warn(`[LLM] ${cfg.name} failed (${res.status}), falling back to DeepSeek`);
+      return chat(messages, options, "deepseek");
+    }
+
     throw new Error(`${cfg.name} error ${res.status}: ${err.slice(0, 200)}`);
   }
 
