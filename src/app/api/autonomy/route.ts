@@ -96,58 +96,65 @@ export async function POST(req: NextRequest) {
     );
 
     // ═══════════════════════════════════════════════════════════════
-    // PHASE 2: PARSE — Extract leads from scout response
+    // PHASE 2: PARSE — Use LLM to extract structured leads
     // ═══════════════════════════════════════════════════════════════
-    console.log(`[Autonomy:${runId}] Phase 2: Parsing leads`);
+    console.log(`[Autonomy:${runId}] Phase 2: Extracting structured leads`);
 
     const leads: Lead[] = [];
     const text = scoutResult.response;
-    
-    // Extract company names and websites using regex patterns
-    const companyMatches = text.match(/\*\*([^*]+)\*\*\s*\(([^)]+)\)/g) || [];
-    const bulletMatches = text.match(/[•\-\d]+\.\s*\*?\*?([^*\n]+)/g) || [];
-    
-    // Fallback: extract any Company (domain.com) pattern
-    const genericMatches = text.match(/([A-Z][a-zA-Z\s&]+)\s*\(([a-zA-Z0-9.-]+\.(?:com|co|io|ai|ca|org))\)/g) || [];
-    
-    const allMatches = [...new Set([...companyMatches, ...genericMatches])];
-    
-    for (const match of allMatches.slice(0, maxEmails)) {
-      const cleaned = match.replace(/^\d+\.\s*/, "").replace(/^\*\*/, "").replace(/\*\*$/, "");
-      const parts = cleaned.match(/(.+?)\s*\(([^)]+)\)/);
-      if (parts) {
-        leads.push({
-          name: parts[1].trim(),
-          website: parts[2].trim(),
-          email: "", // Will need enrichment
-          icpScore: 75 + Math.floor(Math.random() * 20),
-          riskLevel: "medium",
-          keyPoints: ["AI automation", "outbound sales"],
-          tone: "consultative",
-        });
+
+    // Use LLM to parse the scout output into structured JSON
+    try {
+      const parseResult = await executeAgent(
+        `You are a data extraction tool. Given a research report, extract company names and websites into JSON array.
+
+Return ONLY a valid JSON array like:
+[{"name": "Company Name", "website": "company.com"}]
+
+Remove markdown formatting, numbers, and bullets. Only include real company names.`,
+        `Extract companies from this text:\n\n${text}`,
+        [],
+        "permissive"
+      );
+
+      // Try to parse the JSON from the response
+      let parsed: any[] = [];
+      try {
+        const jsonMatch = parseResult.response.match(/\[[\s\S]*\]/);
+        if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
+      } catch {
+        // If JSON parsing fails, try extracting from the original text
+        const lines = text.split("\n").filter((l: string) => l.match(/\*{1,2}[A-Z]/) || l.match(/^\d+\./));
+        for (const line of lines.slice(0, maxEmails)) {
+          const cleaned = line.replace(/^[\d\*\-.\s]+/, "").trim();
+          const urlMatch = cleaned.match(/([a-zA-Z0-9.-]+\.(?:com|co|io|ai|ca|org))/);
+          if (urlMatch && cleaned.length > 3) {
+            parsed.push({
+              name: cleaned.replace(/\s*\([^)]*\)\s*/, "").trim(),
+              website: urlMatch[1],
+            });
+          }
+        }
       }
+
+      for (const item of parsed.slice(0, maxEmails)) {
+        if (item.name && item.website && item.name.length > 2) {
+          leads.push({
+            name: item.name,
+            website: item.website.startsWith("http") ? item.website : `${item.website}`,
+            email: "",
+            icpScore: 78 + Math.floor(Math.random() * 15),
+            riskLevel: "medium",
+            keyPoints: [niche, "outbound sales"],
+            tone: "consultative",
+          });
+        }
+      }
+    } catch (e: any) {
+      console.warn(`[Autonomy:${runId}] Lead parsing failed: ${e.message}`);
     }
 
     runLog.leadsFound = leads.length;
-
-    // If parsing failed, use the raw scout response as fallback leads
-    if (leads.length === 0) {
-      // Extract any capitalized company names
-      const nameMatches = text.match(/\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})\b/g) || [];
-      const uniqueNames = [...new Set(nameMatches)].filter(n => n.length > 5 && !["North America", "B2B SaaS", "The Company"].includes(n));
-      for (const name of uniqueNames.slice(0, maxEmails)) {
-        leads.push({
-          name,
-          website: `${name.toLowerCase().replace(/\s+/g, "")}.com`,
-          email: "",
-          icpScore: 75,
-          riskLevel: "medium",
-          keyPoints: ["AI automation"],
-          tone: "consultative",
-        });
-      }
-      runLog.leadsFound = leads.length;
-    }
 
     // ═══════════════════════════════════════════════════════════════
     // PHASE 3: GENERATE & SEND — Email per lead
@@ -159,13 +166,19 @@ export async function POST(req: NextRequest) {
 
       try {
         const emailResult = await executeAgent(
-          `You are an outreach specialist. Write a 3-sentence cold email targeting ${lead.name} (${lead.website}). They are in the ${niche} space. Keep it under 100 words. Include a clear CTA. Use this exact format:
+          `You are an outreach specialist. Write a 3-sentence cold email targeting ${lead.name} (website: ${lead.website}) in the ${niche} industry. 
 
-Subject: [subject line]
-Body: [email body]
+RULES:
+- Use the company name "${lead.name}" in the email body — do NOT use placeholders like [Name] or [Company]
+- Keep it under 120 words
+- Include one specific, relevant detail about their business
+- Single clear CTA
+- Sign as "HermesOS Agent"
 
-Make the subject line specific to ${lead.name}.`,
-          `Write a cold outreach email for ${lead.name}`,
+Format:
+Subject: [subject line — no placeholders]
+Body: [email body — use real company name]`,
+          `Write a cold outreach email for ${lead.name} (${lead.website})`,
           [],
           "permissive"
         );
