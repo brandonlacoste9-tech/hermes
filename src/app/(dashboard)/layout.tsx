@@ -8,6 +8,7 @@ const NAV = [
   { href: "/agents", label: "Agents", icon: Bot },
   { href: "/agents/create", label: "New Agent", icon: Plus },
   { href: "/crews", label: "Crews", icon: Users },
+  { href: "/autonomy", label: "Autonomy", icon: Zap },
   { href: "/integrations", label: "Integrations", icon: Plug },
   { href: "/monitor", label: "Monitor", icon: Activity },
   { href: "/billing", label: "Billing", icon: CreditCard },
