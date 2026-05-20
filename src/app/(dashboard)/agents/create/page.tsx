@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { ArrowLeft, Cpu, Zap, Shield, Brain } from "lucide-react";
+import { ArrowLeft, Cpu, Zap, Shield, Brain, Send, Loader2, CheckCircle, AlertTriangle, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 const AUTONOMY_LEVELS = [
@@ -10,35 +10,133 @@ const AUTONOMY_LEVELS = [
 ];
 
 const TOOLS = [
-  "web_search", "gmail_send", "gmail_read", "slack_notify", "slack_post",
-  "hubspot_crm", "stripe_invoice", "postgres_query", "notion_write",
-  "pdf_generate", "google_calendar", "github_api",
+  "web_search", "gmail", "slack", "github", "supabase", "stripe",
+  "hubspot", "notion", "google_calendar", "salesforce", "jira", "twitter",
 ];
+
+const TEMPLATES: Record<string, { systemPrompt: string; suggestedTools: string[] }> = {
+  revenue_scout: {
+    systemPrompt: "You are an autonomous revenue agent. Find high-value B2B SaaS opportunities, score them on ICP fit (0-100), and prepare personalized outreach messages. Be concise and data-driven.",
+    suggestedTools: ["gmail", "web_search", "hubspot"],
+  },
+  support_agent: {
+    systemPrompt: "You are an autonomous customer support agent. Classify tickets by urgency, search for solutions, respond helpfully, and escalate when needed. Be empathetic and solution-oriented.",
+    suggestedTools: ["gmail", "slack", "notion"],
+  },
+  content_engine: {
+    systemPrompt: "You are an autonomous content creation agent. Research topics, generate blog posts and social media content, adapt to brand voice, and schedule publishing.",
+    suggestedTools: ["slack", "notion", "web_search"],
+  },
+  data_analyst: {
+    systemPrompt: "You are an autonomous data analyst. Query databases, find trends and anomalies, generate reports with actionable insights. Be precise and always include the 'so what'.",
+    suggestedTools: ["supabase", "slack", "notion"],
+  },
+  compliance_monitor: {
+    systemPrompt: "You are an autonomous compliance monitor. Scan systems for regulatory risks, assess severity, generate reports and alerts. Be thorough and cite specific regulations.",
+    suggestedTools: ["web_search", "gmail", "notion"],
+  },
+};
 
 export default function CreateAgentPage() {
   const [name, setName] = useState("");
-  const [template, setTemplate] = useState("custom");
+  const [template, setTemplate] = useState("revenue_scout");
   const [autonomy, setAutonomy] = useState("balanced");
-  const [selectedTools, setSelectedTools] = useState<string[]>([]);
+  const [selectedTools, setSelectedTools] = useState<string[]>(["web_search"]);
   const [systemPrompt, setSystemPrompt] = useState("");
+  const [task, setTask] = useState("");
+
+  // Execution state
+  const [executing, setExecuting] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState("");
 
   const toggleTool = (tool: string) => {
     setSelectedTools(prev => prev.includes(tool) ? prev.filter(t => t !== tool) : [...prev, tool]);
   };
 
+  const selectTemplate = (key: string) => {
+    setTemplate(key);
+    const tmpl = TEMPLATES[key];
+    if (tmpl) {
+      setSystemPrompt(tmpl.systemPrompt);
+      setSelectedTools(tmpl.suggestedTools);
+    }
+  };
+
+  const handleDeploy = async () => {
+    if (!task.trim()) {
+      setError("Please enter a task for your agent to execute.");
+      return;
+    }
+    setExecuting(true);
+    setError("");
+    setResult(null);
+
+    try {
+      const res = await fetch("/api/agents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "execute",
+          name: name || "Custom Agent",
+          template,
+          autonomy,
+          tools: selectedTools,
+          task: task.trim(),
+          systemPrompt: systemPrompt || TEMPLATES[template]?.systemPrompt,
+        }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setError(data.error);
+      } else {
+        setResult(data);
+      }
+    } catch (e: any) {
+      setError(e.message || "Failed to execute agent");
+    } finally {
+      setExecuting(false);
+    }
+  };
+
   return (
-    <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-8">
+    <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-6">
       <Link href="/agents" className="text-sm text-slate-400 hover:text-white flex items-center gap-1.5 transition-colors">
         <ArrowLeft className="w-3.5 h-3.5" /> Back to agents
       </Link>
 
       <div>
         <h1 className="text-3xl font-bold text-white">Create Agent</h1>
-        <p className="text-slate-400 mt-1">Configure your autonomous AI worker</p>
+        <p className="text-slate-400 mt-1">Configure and deploy your autonomous AI worker</p>
+      </div>
+
+      {/* Template */}
+      <div className="card-glass p-6 space-y-4">
+        <label className="text-sm font-semibold text-white">Template</label>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+          {Object.entries(TEMPLATES).map(([key, tmpl]) => (
+            <button
+              key={key}
+              onClick={() => selectTemplate(key)}
+              className="p-3 rounded-xl text-left text-xs transition-all"
+              style={{
+                background: template === key ? "rgba(212,168,83,0.1)" : "rgba(255,255,255,0.02)",
+                border: `1px solid ${template === key ? "rgba(212,168,83,0.4)" : "rgba(255,255,255,0.06)"}`,
+              }}
+            >
+              <span className="font-semibold text-white block mb-0.5">
+                {key.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())}
+              </span>
+              <span className="text-[10px] text-slate-500">
+                {tmpl.suggestedTools.length} tools
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Name */}
-      <div className="card-glass p-6 space-y-4">
+      <div className="card-glass p-6 space-y-3">
         <label className="text-sm font-semibold text-white">Agent Name</label>
         <input
           value={name}
@@ -75,7 +173,7 @@ export default function CreateAgentPage() {
       {/* Tools */}
       <div className="card-glass p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <label className="text-sm font-semibold text-white">Tools & Integrations</label>
+          <label className="text-sm font-semibold text-white">Tools</label>
           <span className="text-[10px] text-slate-500">{selectedTools.length} selected</span>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -99,27 +197,86 @@ export default function CreateAgentPage() {
         </div>
       </div>
 
-      {/* System Prompt */}
-      <div className="card-glass p-6 space-y-4">
-        <label className="text-sm font-semibold text-white">System Prompt</label>
-        <p className="text-xs text-slate-500">Instructions that define how your agent behaves</p>
+      {/* Task */}
+      <div className="card-glass p-6 space-y-3">
+        <label className="text-sm font-semibold text-white">What should your agent do?</label>
         <textarea
-          value={systemPrompt}
-          onChange={e => setSystemPrompt(e.target.value)}
-          rows={6}
-          placeholder="You are an autonomous revenue agent. Your mission: hunt for SaaS lifetime deals, enrich leads with ICP scoring, and fire personalized outreach sequences..."
+          value={task}
+          onChange={e => setTask(e.target.value)}
+          rows={3}
+          placeholder="e.g., Find 5 SaaS companies in AI automation with under 100 employees, score them, and draft outreach emails..."
           className="w-full bg-white/[0.04] border border-white/[0.06] rounded-xl py-3 px-4 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-[#d4a853]/30 resize-none"
         />
       </div>
 
+      {/* System Prompt */}
+      <div className="card-glass p-6 space-y-3">
+        <label className="text-sm font-semibold text-white">System Prompt</label>
+        <p className="text-xs text-slate-500">Instructions defining agent behavior (pre-filled from template)</p>
+        <textarea
+          value={systemPrompt}
+          onChange={e => setSystemPrompt(e.target.value)}
+          rows={4}
+          className="w-full bg-white/[0.04] border border-white/[0.06] rounded-xl py-3 px-4 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-[#d4a853]/30 resize-none"
+        />
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="p-3 rounded-xl text-sm flex items-center gap-2" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#f87171" }}>
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          {error}
+        </div>
+      )}
+
+      {/* Result */}
+      {result && (
+        <div className="card-glass p-6 space-y-3" style={{ borderColor: "rgba(16,185,129,0.3)" }}>
+          <div className="flex items-center gap-2 text-green-400">
+            <CheckCircle className="w-4 h-4" />
+            <span className="text-sm font-semibold">Agent Executed</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full ml-auto" style={{ background: "rgba(212,168,83,0.15)", color: "#d4a853" }}>
+              {result.result?.autonomyLevel || "balanced"}
+            </span>
+          </div>
+          <p className="text-sm text-slate-300 leading-relaxed">{result.result?.response}</p>
+          {result.result?.actions?.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] text-slate-500 uppercase tracking-wider">Actions Taken</p>
+              {result.result.actions.map((a: any, i: number) => (
+                <div key={i} className="flex items-start gap-2 text-xs p-2 rounded-lg bg-white/[0.02]">
+                  <Sparkles className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: "#d4a853" }} />
+                  <div>
+                    <span className="text-[#d4a853] font-semibold">{a.tool}</span>
+                    <span className="text-slate-400 ml-1.5">{a.reasoning}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Deploy */}
       <div className="flex items-center justify-between p-6 card-glass">
         <div>
-          <p className="text-sm text-white font-semibold">Ready to deploy?</p>
-          <p className="text-xs text-slate-400 mt-0.5">Your agent will be available in the fleet dashboard</p>
+          <p className="text-sm text-white font-semibold">
+            {executing ? "Agent executing..." : "Ready to deploy?"}
+          </p>
+          <p className="text-xs text-slate-400 mt-0.5">
+            {executing ? "DeepSeek is processing your task..." : "Enter a task and deploy your agent"}
+          </p>
         </div>
-        <button className="gold-btn px-6 py-2.5 rounded-xl text-sm inline-flex items-center gap-2">
-          <Cpu className="w-4 h-4" /> Deploy Agent
+        <button
+          onClick={handleDeploy}
+          disabled={executing || !task.trim()}
+          className="gold-btn px-6 py-2.5 rounded-xl text-sm inline-flex items-center gap-2 disabled:opacity-50"
+        >
+          {executing ? (
+            <><Loader2 className="w-4 h-4 animate-spin" /> Running...</>
+          ) : (
+            <><Send className="w-4 h-4" /> Deploy Agent</>
+          )}
         </button>
       </div>
     </div>
