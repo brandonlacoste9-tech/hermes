@@ -109,8 +109,9 @@ export async function getPipelineStats(campaignId?: string) {
 // ── Schema Migration ──────────────────────────────────────────────────────────
 
 export async function migrateSchema() {
-  // Create campaigns table
-  await supabase.rpc("hermes_migrate").maybeSingle().catch(() => {});
+  try {
+    await supabase.rpc("hermes_migrate");
+  } catch {}
 
   // Fallback: create tables via raw SQL
   const sql = `
@@ -146,9 +147,9 @@ export async function migrateSchema() {
   try {
     const queries = sql.split(";").filter(q => q.trim());
     for (const q of queries) {
-      await supabase.rpc("exec_sql", { query: q.trim() }).maybeSingle().catch(() => {
-        // If RPC not available, try direct SQL
-      });
+      try {
+        await supabase.rpc("exec_sql", { query: q.trim() });
+      } catch {}
     }
   } catch {
     console.warn("[Supabase] Schema migration skipped — tables may already exist");
