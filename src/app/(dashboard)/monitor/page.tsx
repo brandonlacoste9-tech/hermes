@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { Activity, Zap, Bot, Target, Shield, Cpu, BarChart3, TrendingUp, Mail, MessageSquare, Send, Clock, ShieldOff, Play, Pause, RefreshCw, DollarSign, ChevronRight, Wifi, WifiOff, CheckCircle } from "lucide-react";
+import { Activity, Zap, Bot, Target, Shield, Cpu, BarChart3, TrendingUp, Mail, MessageSquare, Send, Clock, ShieldOff, Play, Pause, RefreshCw, DollarSign, ChevronRight, Wifi, WifiOff, CheckCircle, Upload, Lock, Unlock, FileText } from "lucide-react";
 
 interface SystemHealth {
   status: string;
@@ -62,7 +62,10 @@ const AGENT_CARDS = [
 export default function ImperialMonitor() {
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [activeAgent, setActiveAgent] = useState("Max");
-  const [logStreams, setLogStreams] = useState<Record<string, string[]>>({
+  const [csvDragOver, setCsvDragOver] = useState(false);
+  const [csvUploaded, setCsvUploaded] = useState(false);
+  const [batchStatus, setBatchStatus] = useState<{ locked: boolean; progress?: string; batchSize?: number }>({ locked: false });
+  const [csvLeads, setCsvLeads] = useState<string[]>([]);
     Max: AGENT_CARDS[0].logLines,
     Joe: AGENT_CARDS[1].logLines,
     TiGuy: AGENT_CARDS[2].logLines,
@@ -165,6 +168,93 @@ export default function ImperialMonitor() {
             <p className="text-[10px] text-slate-500 mt-0.5">{m.sub}</p>
           </div>
         ))}
+      </div>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          REFUEL: CSV Ingestion + Lock Telemetry
+          ═══════════════════════════════════════════════════════════════ */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* ── CSV Drop Zone ──────────────────────────────────────── */}
+        <div
+          className={`rounded-2xl border-2 border-dashed p-6 text-center transition-all ${csvDragOver ? "border-[#d4a853] bg-[#d4a853]/5" : "border-white/[0.06] bg-white/[0.01]"}`}
+          onDragOver={e => { e.preventDefault(); setCsvDragOver(true); }}
+          onDragLeave={() => setCsvDragOver(false)}
+          onDrop={e => {
+            e.preventDefault();
+            setCsvDragOver(false);
+            const file = e.dataTransfer.files[0];
+            if (file && (file.name.endsWith(".csv") || file.type === "text/csv")) {
+              const reader = new FileReader();
+              reader.onload = (ev: any) => {
+                const text = ev.target.result;
+                const domains = text.split("\n").map((l: string) => l.split(",")[0]?.trim()).filter((d: string) => d && d.includes("."));
+                setCsvLeads(domains);
+                setCsvUploaded(true);
+              };
+              reader.readAsText(file);
+            }
+          }}
+        >
+          {csvUploaded ? (
+            <div>
+              <CheckCircle className="w-8 h-8 mx-auto mb-2" style={{ color: "#10b981" }} />
+              <p className="text-sm text-white font-semibold">{csvLeads.length} leads loaded</p>
+              <p className="text-[10px] text-slate-500 mt-1">Drop another file to replace, or run autonomy to process</p>
+              <button
+                onClick={async () => {
+                  setBatchStatus({ locked: true, batchSize: csvLeads.length, progress: "Processing..." });
+                  // Fire autonomy for each batch of 5
+                  for (let i = 0; i < Math.min(csvLeads.length, 25); i += 5) {
+                    const batch = csvLeads.slice(i, i + 5);
+                    try {
+                      await fetch("/api/autonomy", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ niche: batch.join(", "), market: "Canada", maxEmails: batch.length, send: true, yourService: "Bill 96 French compliance" }),
+                      });
+                    } catch {}
+                    setBatchStatus({ locked: true, batchSize: csvLeads.length, progress: `${Math.min(i + 5, csvLeads.length)}/${csvLeads.length} processed` });
+                  }
+                  setBatchStatus({ locked: false });
+                }}
+                className="mt-3 px-4 py-2 rounded-lg text-xs font-semibold text-white inline-flex items-center gap-2" style={{ background: "linear-gradient(135deg, #d4a853, #f0c060)" }}
+              >
+                <Play className="w-3 h-3" /> Process {csvLeads.length} Leads
+              </button>
+            </div>
+          ) : (
+            <div>
+              <Upload className="w-8 h-8 mx-auto mb-2 text-slate-600" />
+              <p className="text-sm text-slate-300 font-medium">Drop CSV file here</p>
+              <p className="text-[10px] text-slate-500 mt-1">.csv with domain/URL column · Apollo, ZoomInfo, scrape exports</p>
+            </div>
+          )}
+        </div>
+
+        {/* ── Lock Telemetry ─────────────────────────────────────── */}
+        <div className="rounded-2xl border border-white/[0.04] p-5 flex flex-col justify-center" style={{ background: "rgba(255,255,255,0.015)" }}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${batchStatus.locked ? "bg-amber-500/10" : "bg-green-500/10"}`} style={{ color: batchStatus.locked ? "#f59e0b" : "#22c55e" }}>
+              {batchStatus.locked ? <Lock className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white">Processing Lock</h3>
+              <p className="text-[10px] text-slate-400">{batchStatus.locked ? "Batch active — overlap blocked" : "Idle — ready for next hunt"}</p>
+            </div>
+          </div>
+          {batchStatus.locked && (
+            <div>
+              <div className="flex items-center justify-between text-[10px] mb-1">
+                <span className="text-slate-400">Batch Progress</span>
+                <span className="text-[#d4a853]">{batchStatus.progress || "Processing..."}</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-white/[0.04] overflow-hidden">
+                <div className="h-full rounded-full animate-pulse" style={{ background: "linear-gradient(90deg, #d4a853, #f0c060)", width: batchStatus.progress ? `${(parseInt(batchStatus.progress.split("/")[0]) / (batchStatus.batchSize || 1)) * 100}%` : "100%" }} />
+              </div>
+              <p className="text-[9px] text-slate-600 mt-2">Lock auto-releases after 15 min if stuck</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════
