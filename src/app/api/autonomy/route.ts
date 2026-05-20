@@ -275,8 +275,10 @@ Body: [email body — use real company name]`,
           body: "",
         })));
         // Mark as sent for each
-        savedLeads.forEach(sl => updateLeadStatus(sl.id, "sent"));
-      } catch {}
+        savedLeads?.forEach(sl => updateLeadStatus(sl.id, "sent"));
+      } catch {
+        // Neon persistence is best-effort — autonomy continues regardless
+      }
     }
 
     console.log(`[Autonomy:${runId}] Complete: ${runLog.emailsSent} sent, ${runLog.errors} errors`);
