@@ -10,13 +10,16 @@
 
 // ── Provider Configs ─────────────────────────────────────────────────────────
 
-export const PROVIDERS = {
+export const PROVIDERS: Record<string, {
+  name: string; baseUrl: string; apiKey: string; model: string; color: string; headers: Record<string, string>;
+}> = {
   deepseek: {
     name: "DeepSeek",
     baseUrl: process.env.HERMES_BASE_URL || "https://api.deepseek.com/v1",
     apiKey: process.env.DEEPSEEK_API_KEY || "",
     model: process.env.HERMES_MODEL || "deepseek-chat",
     color: "#4f46e5",
+    headers: {},
   },
   "nous-hermes": {
     name: "Nous Hermes",
@@ -25,7 +28,7 @@ export const PROVIDERS = {
     model: "nousresearch/hermes-3-llama-3.1-405b:free",
     color: "#a855f7",
     headers: {
-      "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+      "HTTP-Referer": (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000") as string,
       "X-Title": "HermesOS",
     },
   },
@@ -35,6 +38,7 @@ export const PROVIDERS = {
     apiKey: process.env.OPENAI_API_KEY || "",
     model: "gpt-4o",
     color: "#10b981",
+    headers: {},
   },
   openrouter: {
     name: "OpenRouter",
@@ -42,6 +46,7 @@ export const PROVIDERS = {
     apiKey: process.env.OPENROUTER_API_KEY || "",
     model: process.env.OPENROUTER_MODEL || "openai/gpt-4o",
     color: "#06b6d4",
+    headers: {},
   },
 };
 
