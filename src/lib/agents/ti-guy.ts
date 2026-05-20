@@ -151,7 +151,25 @@ export async function getSystemHealth() {
 }
 
 function calculateSpend(leadCount: number): string {
-  // Rough estimate: ~$0.005 per lead (scout + score + generate)
   const estimated = (leadCount * 0.005).toFixed(2);
   return `$${estimated}`;
 }
+
+// ── Spend Alert ──────────────────────────────────────────────────────────
+
+const SPEND_ALERT_THRESHOLD = parseFloat(process.env.API_SPEND_ALERT || "5.00");
+let alertFired = false;
+
+export function checkSpendAlert(leadCount: number): { alert: boolean; message: string } | null {
+  const spend = leadCount * 0.005;
+  if (spend > SPEND_ALERT_THRESHOLD && !alertFired) {
+    alertFired = true;
+    return {
+      alert: true,
+      message: `API spend alert: $${spend.toFixed(2)} exceeds $${SPEND_ALERT_THRESHOLD.toFixed(2)} threshold. ${leadCount} leads processed.`,
+    };
+  }
+  return null;
+}
+
+export function resetSpendAlert() { alertFired = false; }
