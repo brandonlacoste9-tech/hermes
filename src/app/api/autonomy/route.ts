@@ -66,7 +66,34 @@ export async function GET(req: NextRequest) {
   });
 }
 
+// ── Atomic Processing Lock (idempotency shield) ────────────────────────────
+
+let processingLock: { active: boolean; startedAt: number } | null = null;
+const LOCK_TIMEOUT_MS = 15 * 60 * 1000;
+
+function acquireLock(): boolean {
+  if (processingLock?.active) {
+    if (Date.now() - processingLock.startedAt > LOCK_TIMEOUT_MS) {
+      processingLock = null; // dead-letter recovery
+    } else {
+      return false; // another run in progress
+    }
+  }
+  processingLock = { active: true, startedAt: Date.now() };
+  return true;
+}
+
+function releaseLock() { processingLock = null; }
+
 export async function POST(req: NextRequest) {
+  // ── Idempotency gate ──────────────────────────────────────────
+  if (!acquireLock()) {
+    return NextResponse.json({ 
+      skipped: true, 
+      reason: "Another autonomy cycle is already running" 
+    });
+  }
+
   try {
     const body = await req.json();
     const { niche = "B2B SaaS AI automation", market = "North America", maxEmails = 5, send = true, yourService = "" } = body;
@@ -257,7 +284,41 @@ Body: [email body — use real company name]`,
 
     runLog.completedAt = new Date().toISOString();
 
-    // ── Persist to campaign pipeline ─────────────────────────────
+    // ── Atomic Processing Lock ────────────────────────────────────────────────
+
+let processingLock: { active: boolean; startedAt: number; leadIds: Set<string> } | null = null;
+const LOCK_TIMEOUT_MS = 15 * 60 * 1000; // 15 min dead-letter recovery
+
+function acquireLock(maxLeads: number): boolean {
+  const now = Date.now();
+  
+  // Dead-letter recovery: if a lock is older than timeout, release it
+  if (processingLock?.active && (now - processingLock.startedAt) > LOCK_TIMEOUT_MS) {
+    console.warn(`[Autonomy] Stale lock detected (${Math.round((now - processingLock.startedAt) / 1000)}s). Recovering.`);
+    processingLock = null;
+  }
+  
+  // Reject if already processing
+  if (processingLock?.active) {
+    console.log(`[Autonomy] Lock held — another run in progress. Skipping cycle.`);
+    return false;
+  }
+  
+  processingLock = { active: true, startedAt: now, leadIds: new Set() };
+  return true;
+}
+
+function releaseLock() {
+  processingLock = null;
+}
+
+function isLeadLocked(website: string): boolean {
+  return processingLock?.leadIds.has(website) ?? false;
+}
+
+function lockLead(website: string) {
+  processingLock?.leadIds.add(website);
+}
     if (leads.length > 0) {
       try {
         const campaign = await createCampaign(
