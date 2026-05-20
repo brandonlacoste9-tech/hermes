@@ -1,2 +1,0 @@
-# hermes
-hermes app

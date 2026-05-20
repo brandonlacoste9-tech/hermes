@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+:root {
+  --bg-base: #06080f;
+  --bg-card: rgba(17, 24, 39, 0.6);
+  --gold: #d4a853;
+  --gold-light: #f0c060;
+  --gold-dim: rgba(212, 168, 83, 0.12);
+  --cyan: #06b6d4;
+  --purple: #a855f7;
+  --green: #10b981;
+  --red: #ef4444;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--bg-base);
+  color: #e2e8f0;
+  font-family: system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+::selection { background: rgba(212, 168, 83, 0.3); }
+
+.card-glass {
+  background: rgba(17, 24, 39, 0.5);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(212, 168, 83, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 4px 32px rgba(0,0,0,0.3);
+}
+
+.gold-gradient {
+  background: linear-gradient(135deg, #d4a853, #f0c060);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gold-btn {
+  background: linear-gradient(135deg, #d4a853, #f0c060);
+  color: #06080f;
+  border: none;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+.gold-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.animate-pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}
+.animate-spin-slow { animation: spin-slow 3s linear infinite; }
