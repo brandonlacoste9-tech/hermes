@@ -64,7 +64,7 @@ export async function checkProviderHealth(): Promise<ProviderHealth[]> {
 
 export function getBestProvider(): ProviderKey {
   const healthy = healthCache.filter(h => h.ok);
-  if (healthy.length === 0) return "deepseek";
+  if (healthy.length === 0) return "deepseek"; // last resort fallback
   
   // Route to cheapest healthy provider
   const cheapest = healthy.reduce((best, curr) => 
@@ -73,6 +73,34 @@ export function getBestProvider(): ProviderKey {
   
   const entry = Object.entries(PROVIDERS).find(([_, v]) => v.name === cheapest.provider);
   return (entry?.[0] || "deepseek") as ProviderKey;
+}
+
+// ── Provider Fallback Chain ───────────────────────────────────────────────
+
+export function getFallbackProvider(failedProvider: ProviderKey): ProviderKey {
+  const chain: ProviderKey[] = ["deepseek", "nous-hermes", "openrouter"];
+  const idx = chain.indexOf(failedProvider);
+  const next = idx >= 0 ? chain.slice(idx + 1) : chain;
+  
+  for (const p of next) {
+    const health = healthCache.find(h => h.provider === PROVIDERS[p]?.name);
+    if (health?.ok) return p;
+  }
+  return "deepseek";
+}
+
+export async function attemptWithFallback<T>(
+  fn: (provider: ProviderKey) => Promise<T>,
+  preferred: ProviderKey = "deepseek"
+): Promise<{ result: T; provider: ProviderKey }> {
+  try {
+    const result = await fn(preferred);
+    return { result, provider: preferred };
+  } catch {
+    const fallback = getFallbackProvider(preferred);
+    const result = await fn(fallback);
+    return { result, provider: fallback };
+  }
 }
 
 // ── Billing Tier Management ────────────────────────────────────────────────
