@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { executeAgent, AGENT_TEMPLATES, ping } from "@/lib/hermes/ai";
 import { sendEmail, isConfigured } from "@/lib/email/sender";
+import { createCampaign, addLeads, updateLeadStatus } from "@/lib/campaigns/store";
 
 interface Lead {
   name: string;
@@ -90,7 +91,19 @@ export async function POST(req: NextRequest) {
 
     const scoutResult = await executeAgent(
       AGENT_TEMPLATES.revenue_scout.systemPrompt,
-      `Find ${maxEmails} real B2B SaaS companies in the ${niche} space in ${market}. For each, provide: company name, website URL, and a brief reason why they'd benefit from outbound sales services. Be specific — use real company names.`,
+      `Find ${maxEmails} SPECIFIC companies that would BUY "${yourService || "Bill 96 compliance services"}".
+
+CRITICAL: You are a sales rep for a company that sells: ${yourService || "French localization and Bill 96 compliance"}.
+Find companies that NEED this specific service.
+
+Requirements:
+- TARGET: Canadian SaaS companies with English-only websites operating in Quebec
+- Must be SOFTWARE companies, not banks, manufacturers, or retailers
+- Under 500 employees
+- Their website/customers are in Quebec but product is English-only
+- They face Bill 96 fines if they don't add French
+
+Return company name and website only. Be specific — use real companies.`,
       ["web_search"],
       "balanced"
     );
@@ -243,6 +256,28 @@ Body: [email body — use real company name]`,
     }
 
     runLog.completedAt = new Date().toISOString();
+
+    // ── Persist to campaign pipeline ─────────────────────────────
+    if (leads.length > 0) {
+      try {
+        const campaign = createCampaign(
+          `${niche} — ${new Date().toLocaleDateString()}`,
+          yourService || niche,
+          niche,
+          market
+        );
+        const savedLeads = addLeads(campaign.id, leads.map(l => ({
+          company: l.name,
+          website: l.website,
+          email: l.email || `contact@${l.website}`,
+          service: yourService || "",
+          subject: runLog.results.find(r => r.lead.name === l.name)?.subject || "",
+          body: "",
+        })));
+        // Mark as sent for each
+        savedLeads.forEach(sl => updateLeadStatus(sl.id, "sent"));
+      } catch {}
+    }
 
     console.log(`[Autonomy:${runId}] Complete: ${runLog.emailsSent} sent, ${runLog.errors} errors`);
 

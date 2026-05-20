@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Cpu, LayoutDashboard, Bot, Activity, CreditCard, Plus, Zap, Plug, Users } from "lucide-react";
+import { Cpu, LayoutDashboard, Bot, Activity, CreditCard, Plus, Zap, Plug, Users, BarChart3 } from "lucide-react";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -9,6 +9,7 @@ const NAV = [
   { href: "/agents/create", label: "New Agent", icon: Plus },
   { href: "/crews", label: "Crews", icon: Users },
   { href: "/autonomy", label: "Autonomy", icon: Zap },
+  { href: "/campaigns", label: "Campaigns", icon: BarChart3 },
   { href: "/integrations", label: "Integrations", icon: Plug },
   { href: "/monitor", label: "Monitor", icon: Activity },
   { href: "/billing", label: "Billing", icon: CreditCard },
