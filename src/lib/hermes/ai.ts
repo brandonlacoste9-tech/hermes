@@ -81,10 +81,11 @@ export async function chat(
     payload.response_format = { type: "json_object" };
   }
 
+  const extraHeaders = "headers" in cfg ? cfg.headers as Record<string, string> : {};
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Authorization: `Bearer ${cfg.apiKey}`,
-    ...(cfg.headers || {}),
+    ...extraHeaders,
   };
 
   const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
