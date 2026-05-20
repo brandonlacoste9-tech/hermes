@@ -51,7 +51,7 @@ export const PROVIDERS: Record<string, {
 };
 
 export type ProviderKey = keyof typeof PROVIDERS;
-export const DEFAULT_PROVIDER: ProviderKey = "nous-hermes";
+export const DEFAULT_PROVIDER: ProviderKey = "deepseek";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
