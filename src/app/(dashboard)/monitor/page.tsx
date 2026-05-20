@@ -66,6 +66,7 @@ export default function ImperialMonitor() {
   const [csvUploaded, setCsvUploaded] = useState(false);
   const [batchStatus, setBatchStatus] = useState<{ locked: boolean; progress?: string; batchSize?: number }>({ locked: false });
   const [csvLeads, setCsvLeads] = useState<string[]>([]);
+  const [logStreams, setLogStreams] = useState<Record<string, string[]>>({
     Max: AGENT_CARDS[0].logLines,
     Joe: AGENT_CARDS[1].logLines,
     TiGuy: AGENT_CARDS[2].logLines,
