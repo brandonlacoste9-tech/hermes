@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { executeAgent, AGENT_TEMPLATES, ping } from "@/lib/hermes/ai";
 import { sendEmail, isConfigured } from "@/lib/email/sender";
-import { createCampaign, addLeads, updateLeadStatus } from "@/lib/campaigns/store";
+import { createCampaign, addLeadsToCampaign, updateLeadStatus } from "@/lib/campaigns/store";
 
 interface Lead {
   name: string;
@@ -266,7 +266,7 @@ Body: [email body — use real company name]`,
           niche,
           market
         );
-        const savedLeads = addLeads(campaign.id, leads.map(l => ({
+        const savedLeads = await addLeadsToCampaign(campaign.id, leads.map(l => ({
           company: l.name,
           website: l.website,
           email: l.email || `contact@${l.website}`,
