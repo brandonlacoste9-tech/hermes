@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  const prov = (req.nextUrl.searchParams.get("provider") || "deepseek") as ProviderKey;
+  const prov = (req.nextUrl.searchParams.get("provider") || "nous-hermes") as ProviderKey;
   const result = await ping(prov);
   return NextResponse.json({
     status: "HermesOS Agent Runtime — Multi-Provider",
