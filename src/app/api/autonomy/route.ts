@@ -157,6 +157,29 @@ Remove markdown formatting, numbers, and bullets. Only include real company name
     runLog.leadsFound = leads.length;
 
     // ═══════════════════════════════════════════════════════════════
+    // PHASE 2.5: ENRICH — Scrape websites for real data
+    // ═══════════════════════════════════════════════════════════════
+    if (leads.length > 0) {
+      console.log(`[Autonomy:${runId}] Phase 2.5: Enriching leads via Firecrawl`);
+      const { enrichLead, isConfigured: fcReady } = await import("@/lib/firecrawl/client");
+
+      if (fcReady()) {
+        for (const lead of leads) {
+          try {
+            const enrichment = await enrichLead(lead.name, lead.website);
+            lead.keyPoints = [
+              enrichment.isEnglishOnly ? "English-only website — needs French localization" : "Has French content",
+              enrichment.description.slice(0, 100),
+              ...enrichment.keyInsights,
+            ].filter(Boolean);
+          } catch {
+            // Enrichment is non-critical — continue with basic data
+          }
+        }
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // PHASE 3: GENERATE & SEND — Email per lead
     // ═══════════════════════════════════════════════════════════════
     console.log(`[Autonomy:${runId}] Phase 3: Generating & sending ${leads.length} emails`);
