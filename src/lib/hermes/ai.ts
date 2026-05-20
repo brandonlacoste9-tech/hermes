@@ -1,11 +1,51 @@
 /**
- * Hermes AI Client — OpenAI-compatible LLM interface.
- * Primary: DeepSeek. Supports any OpenAI-compatible endpoint.
+ * Hermes AI Client — Multi-provider LLM interface.
+ *
+ * Providers:
+ *   deepseek    — DeepSeek API (default)
+ *   nous-hermes — Nous Research Hermes via OpenRouter
+ *   openai      — OpenAI API
+ *   custom      — Any OpenAI-compatible endpoint
  */
 
-const BASE_URL = process.env.HERMES_BASE_URL || "https://api.deepseek.com/v1";
-const API_KEY = process.env.DEEPSEEK_API_KEY || "";
-const MODEL = process.env.HERMES_MODEL || "deepseek-chat";
+// ── Provider Configs ─────────────────────────────────────────────────────────
+
+export const PROVIDERS = {
+  deepseek: {
+    name: "DeepSeek",
+    baseUrl: process.env.HERMES_BASE_URL || "https://api.deepseek.com/v1",
+    apiKey: process.env.DEEPSEEK_API_KEY || "",
+    model: process.env.HERMES_MODEL || "deepseek-chat",
+    color: "#4f46e5",
+  },
+  "nous-hermes": {
+    name: "Nous Hermes",
+    baseUrl: "https://openrouter.ai/api/v1",
+    apiKey: process.env.OPENROUTER_API_KEY || process.env.NOUS_HERMES_API_KEY || "",
+    model: "nousresearch/hermes-3-llama-3.1-405b:free",
+    color: "#a855f7",
+    headers: {
+      "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+      "X-Title": "HermesOS",
+    },
+  },
+  openai: {
+    name: "OpenAI",
+    baseUrl: "https://api.openai.com/v1",
+    apiKey: process.env.OPENAI_API_KEY || "",
+    model: "gpt-4o",
+    color: "#10b981",
+  },
+  openrouter: {
+    name: "OpenRouter",
+    baseUrl: "https://openrouter.ai/api/v1",
+    apiKey: process.env.OPENROUTER_API_KEY || "",
+    model: process.env.OPENROUTER_MODEL || "openai/gpt-4o",
+    color: "#06b6d4",
+  },
+};
+
+export type ProviderKey = keyof typeof PROVIDERS;
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -18,16 +58,20 @@ interface ChatOptions {
   responseFormat?: "text" | "json_object";
 }
 
+// ── Core Client ──────────────────────────────────────────────────────────────
+
 export async function chat(
   messages: ChatMessage[],
-  options: ChatOptions = {}
+  options: ChatOptions = {},
+  provider: ProviderKey = "deepseek"
 ): Promise<string> {
-  if (!API_KEY) throw new Error("DEEPSEEK_API_KEY not configured");
+  const cfg = PROVIDERS[provider];
+  if (!cfg.apiKey) throw new Error(`${cfg.name} API key not configured`);
 
   const { temperature = 0.7, maxTokens = 2048, responseFormat } = options;
 
   const payload: any = {
-    model: MODEL,
+    model: cfg.model,
     messages,
     temperature,
     max_tokens: maxTokens,
@@ -37,18 +81,21 @@ export async function chat(
     payload.response_format = { type: "json_object" };
   }
 
-  const res = await fetch(`${BASE_URL}/chat/completions`, {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${cfg.apiKey}`,
+    ...(cfg.headers || {}),
+  };
+
+  const res = await fetch(`${cfg.baseUrl}/chat/completions`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${API_KEY}`,
-    },
+    headers,
     body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`LLM error ${res.status}: ${err.slice(0, 200)}`);
+    throw new Error(`${cfg.name} error ${res.status}: ${err.slice(0, 200)}`);
   }
 
   const data = await res.json();
@@ -57,9 +104,10 @@ export async function chat(
 
 export async function chatJSON(
   messages: ChatMessage[],
-  options: ChatOptions = {}
+  options: ChatOptions = {},
+  provider: ProviderKey = "deepseek"
 ): Promise<any> {
-  const text = await chat(messages, { ...options, responseFormat: "json_object" });
+  const text = await chat(messages, { ...options, responseFormat: "json_object" }, provider);
   try {
     return JSON.parse(text);
   } catch {
@@ -67,16 +115,22 @@ export async function chatJSON(
   }
 }
 
-export async function ping(): Promise<{ ok: boolean; model: string; latencyMs: number }> {
+// ── Ping ─────────────────────────────────────────────────────────────────────
+
+export async function ping(provider: ProviderKey = "deepseek"): Promise<{
+  ok: boolean; provider: string; model: string; latencyMs: number;
+}> {
   const start = Date.now();
+  const cfg = PROVIDERS[provider];
   try {
     const text = await chat(
       [{ role: "user", content: "Say PONG" }],
-      { maxTokens: 10, temperature: 0 }
+      { maxTokens: 10, temperature: 0 },
+      provider
     );
-    return { ok: true, model: MODEL, latencyMs: Date.now() - start };
+    return { ok: true, provider: cfg.name, model: cfg.model, latencyMs: Date.now() - start };
   } catch (e: any) {
-    return { ok: false, model: "", latencyMs: Date.now() - start };
+    return { ok: false, provider: cfg.name, model: cfg.model, latencyMs: Date.now() - start };
   }
 }
 
@@ -86,11 +140,14 @@ export async function executeAgent(
   systemPrompt: string,
   task: string,
   tools: string[],
-  autonomy: "permissive" | "balanced" | "strict"
+  autonomy: "permissive" | "balanced" | "strict",
+  provider: ProviderKey = "deepseek"
 ): Promise<{
   response: string;
   actions: { tool: string; reasoning: string }[];
   autonomyLevel: string;
+  provider: string;
+  model: string;
 }> {
   const toolList = tools.length > 0
     ? `\nAvailable tools: ${tools.join(", ")}`
@@ -107,12 +164,14 @@ export async function executeAgent(
     { role: "user", content: task },
   ];
 
-  const result = await chatJSON(messages, { temperature: 0.7, maxTokens: 2048 });
+  const result = await chatJSON(messages, { temperature: 0.7, maxTokens: 2048 }, provider);
 
   return {
     response: result.response || result.raw || "Task processed.",
     actions: result.actions || [],
     autonomyLevel: autonomy,
+    provider: PROVIDERS[provider].name,
+    model: PROVIDERS[provider].model,
   };
 }
 

@@ -1,15 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
-import { executeAgent, ping, AGENT_TEMPLATES } from "@/lib/hermes/ai";
+import { executeAgent, ping, AGENT_TEMPLATES, PROVIDERS, ProviderKey } from "@/lib/hermes/ai";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { action, name, template, autonomy, tools, task, systemPrompt } = body;
+    const { action, name, template, autonomy, tools, task, systemPrompt, provider } = body;
 
     // ── Ping / health check ──────────────────────────────────────────────
     if (action === "ping") {
-      const result = await ping();
+      const prov = (provider || "deepseek") as ProviderKey;
+      const result = await ping(prov);
       return NextResponse.json(result);
+    }
+
+    // ── List providers ───────────────────────────────────────────────────
+    if (action === "providers") {
+      const list = Object.entries(PROVIDERS).map(([key, cfg]) => ({
+        id: key,
+        name: cfg.name,
+        model: cfg.model,
+        color: cfg.color,
+        configured: !!cfg.apiKey,
+      }));
+      return NextResponse.json({ providers: list });
     }
 
     // ── Get template info ────────────────────────────────────────────────
@@ -26,16 +39,19 @@ export async function POST(req: NextRequest) {
       const prompt = systemPrompt || AGENT_TEMPLATES[template]?.systemPrompt || 
         "You are an autonomous AI agent. Execute the task efficiently.";
       
+      const prov = (provider || "deepseek") as ProviderKey;
+      
       const result = await executeAgent(
         prompt,
         task || "Execute your configured mission.",
         tools || [],
-        autonomy || "balanced"
+        autonomy || "balanced",
+        prov
       );
 
       return NextResponse.json({
         success: true,
-        agent: { name, template, autonomy },
+        agent: { name, template, autonomy, provider: prov },
         result,
       });
     }
@@ -56,11 +72,12 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET — health check
-export async function GET() {
-  const result = await ping();
+export async function GET(req: NextRequest) {
+  const prov = (req.nextUrl.searchParams.get("provider") || "deepseek") as ProviderKey;
+  const result = await ping(prov);
   return NextResponse.json({
-    status: "HermesOS Agent Runtime",
+    status: "HermesOS Agent Runtime — Multi-Provider",
+    providers: Object.keys(PROVIDERS).length,
     ai: result,
     templates: Object.keys(AGENT_TEMPLATES).length,
   });
