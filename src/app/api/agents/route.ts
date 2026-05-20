@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
 
     // ── Ping / health check ──────────────────────────────────────────────
     if (action === "ping") {
-      const prov = (provider || "deepseek") as ProviderKey;
+      const prov = (provider || "nous-hermes") as ProviderKey;
       const result = await ping(prov);
       return NextResponse.json(result);
     }
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       const prompt = systemPrompt || AGENT_TEMPLATES[template]?.systemPrompt || 
         "You are an autonomous AI agent. Execute the task efficiently.";
       
-      const prov = (provider || "deepseek") as ProviderKey;
+      const prov = (provider || "nous-hermes") as ProviderKey;
       
       const result = await executeAgent(
         prompt,

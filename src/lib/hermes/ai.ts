@@ -51,6 +51,7 @@ export const PROVIDERS: Record<string, {
 };
 
 export type ProviderKey = keyof typeof PROVIDERS;
+export const DEFAULT_PROVIDER: ProviderKey = "nous-hermes";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
@@ -68,7 +69,7 @@ interface ChatOptions {
 export async function chat(
   messages: ChatMessage[],
   options: ChatOptions = {},
-  provider: ProviderKey = "deepseek"
+  provider: ProviderKey = DEFAULT_PROVIDER
 ): Promise<string> {
   const cfg = PROVIDERS[provider];
   if (!cfg.apiKey) throw new Error(`${cfg.name} API key not configured`);
@@ -111,7 +112,7 @@ export async function chat(
 export async function chatJSON(
   messages: ChatMessage[],
   options: ChatOptions = {},
-  provider: ProviderKey = "deepseek"
+  provider: ProviderKey = DEFAULT_PROVIDER
 ): Promise<any> {
   const text = await chat(messages, { ...options, responseFormat: "json_object" }, provider);
   try {
@@ -147,7 +148,7 @@ export async function executeAgent(
   task: string,
   tools: string[],
   autonomy: "permissive" | "balanced" | "strict",
-  provider: ProviderKey = "deepseek"
+  provider: ProviderKey = DEFAULT_PROVIDER
 ): Promise<{
   response: string;
   actions: { tool: string; reasoning: string }[];
