@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { niche = "B2B SaaS AI automation", market = "North America", maxEmails = 5, send = true } = body;
+    const { niche = "B2B SaaS AI automation", market = "North America", maxEmails = 5, send = true, yourService = "" } = body;
 
     const runId = `run_${Date.now()}`;
     const runLog: RunLog = {
@@ -192,7 +192,9 @@ Remove markdown formatting, numbers, and bullets. Only include real company name
           `You are an outreach specialist. Write a 3-sentence cold email targeting ${lead.name} (website: ${lead.website}) in the ${niche} industry. 
 
 RULES:
-- Use the company name "${lead.name}" in the email body — do NOT use placeholders like [Name] or [Company]
+- YOU ARE SELLING: ${yourService || "French localization + Bill 96 compliance services"}. Pitch THIS service, not random SaaS tools.
+- Use the company name "${lead.name}" in the email body — do NOT use placeholders like [Name]
+- Reference why ${lead.name} specifically needs ${yourService || "compliance help"}
 - Keep it under 120 words
 - Include one specific, relevant detail about their business
 - Single clear CTA

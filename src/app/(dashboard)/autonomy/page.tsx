@@ -7,6 +7,7 @@ export default function AutonomyPage() {
   const [market, setMarket] = useState("Canada");
   const [maxEmails, setMaxEmails] = useState(5);
   const [send, setSend] = useState(false);
+  const [yourService, setYourService] = useState("French localization + Bill 96 compliance for English-only SaaS companies");
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [status, setStatus] = useState<any>(null);
@@ -34,7 +35,7 @@ export default function AutonomyPage() {
       const res = await fetch("/api/autonomy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ niche, market, maxEmails, send }),
+        body: JSON.stringify({ niche, market, maxEmails, send, yourService }),
       });
       const data = await res.json();
       if (data.error) setError(data.error);
@@ -99,6 +100,10 @@ export default function AutonomyPage() {
               Send emails
             </label>
           </div>
+        </div>
+        <div className="mt-3">
+          <label className="text-[10px] text-slate-500 uppercase tracking-wider mb-1 block">Your Service (what you sell)</label>
+          <input value={yourService} onChange={e => setYourService(e.target.value)} placeholder="e.g., Bill 96 French compliance for English-only SaaS" className="w-full bg-white/[0.04] border border-white/[0.06] rounded-lg py-2.5 px-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-[#d4a853]/30" />
         </div>
         <button onClick={runAutonomy} disabled={running} className="gold-btn px-6 py-2.5 rounded-xl text-sm inline-flex items-center gap-2 disabled:opacity-50">
           {running ? <><Loader2 className="w-4 h-4 animate-spin" /> Hunting...</> : <><Play className="w-4 h-4" /> Run Autonomy Loop</>}
