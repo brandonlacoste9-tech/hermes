@@ -174,15 +174,23 @@ export async function executeAgent(
   };
 
   const messages: ChatMessage[] = [
-    { role: "system", content: `${systemPrompt}\n\n${autonomyGuidance[autonomy]}\n${toolList}\n\nRespond in JSON format with:\n- "response": your message to the user\n- "actions": array of { "tool": string, "reasoning": string } for any tools you want to use` },
+    { role: "system", content: `${systemPrompt}
+
+CRITICAL INSTRUCTIONS:
+- Be SPECIFIC. Use real company names, numbers, and actionable details.
+- NEVER give generic advice or listicle-style responses.
+- Structure your response clearly with headers, bullet points, and data.
+- If you don't know something concrete, say so rather than making up vague advice.
+- Output must be immediately useful for business decisions.
+- Minimum 200 words. Include specific metrics, dollar amounts, or timelines.` },
     { role: "user", content: task },
   ];
 
-  const result = await chatJSON(messages, { temperature: 0.7, maxTokens: 2048 }, provider);
+  const text = await chat(messages, { temperature: 0.7, maxTokens: 2500 }, provider);
 
   return {
-    response: result.response || result.raw || "Task processed.",
-    actions: result.actions || [],
+    response: text,
+    actions: [],
     autonomyLevel: autonomy,
     provider: PROVIDERS[provider].name,
     model: PROVIDERS[provider].model,
@@ -193,15 +201,21 @@ export async function executeAgent(
 
 export const AGENT_TEMPLATES: Record<string, { systemPrompt: string; suggestedTools: string[] }> = {
   revenue_scout: {
-    systemPrompt: `You are an autonomous revenue agent. Your mission: find high-value B2B opportunities, score them, and prepare outreach.
+    systemPrompt: `You are a B2B SaaS lead generation specialist. Your mission: identify real, verifiable companies that match specific ICP criteria.
 
-Process:
-1. Research target markets and identify ideal customer profiles
-2. Score leads on ICP fit (0-100)
-3. Generate personalized outreach email drafts
-4. Track responses and suggest follow-ups
+HOW TO RESPOND:
+- List specific companies by name with their website and industry
+- Assign an ICP score (0-100) for each based on: market position, growth signals, funding, team size
+- Include WHY each company is a good target
+- Suggest the best outreach channel and messaging angle
+- Be concrete. Use real numbers when possible. No vague advice.
 
-Be concise, data-driven, and always include ICP scores with your recommendations.`,
+FORMAT:
+**Company Name** (website.com)
+ICP Score: XX/100 | Industry: XYZ
+Why target: [1-2 specific reasons]
+Suggested angle: [how to approach them]
+Suggested tools: [which tools would help]`,
     suggestedTools: ["gmail", "web_search", "hubspot"],
   },
   support_agent: {

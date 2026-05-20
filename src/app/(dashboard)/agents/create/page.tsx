@@ -235,25 +235,13 @@ export default function CreateAgentPage() {
           <div className="flex items-center gap-2 text-green-400">
             <CheckCircle className="w-4 h-4" />
             <span className="text-sm font-semibold">Agent Executed</span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full ml-auto" style={{ background: "rgba(212,168,83,0.15)", color: "#d4a853" }}>
-              {result.result?.autonomyLevel || "balanced"}
+            <span className="text-[10px] px-2 py-0.5 rounded-full ml-auto" style={{ background: "rgba(168,85,247,0.15)", color: "#a855f7" }}>
+              {result.result?.provider || "Nous Hermes"}
             </span>
           </div>
-          <p className="text-sm text-slate-300 leading-relaxed">{result.result?.response}</p>
-          {result.result?.actions?.length > 0 && (
-            <div className="space-y-1.5">
-              <p className="text-[10px] text-slate-500 uppercase tracking-wider">Actions Taken</p>
-              {result.result.actions.map((a: any, i: number) => (
-                <div key={i} className="flex items-start gap-2 text-xs p-2 rounded-lg bg-white/[0.02]">
-                  <Sparkles className="w-3.5 h-3.5 shrink-0 mt-0.5" style={{ color: "#d4a853" }} />
-                  <div>
-                    <span className="text-[#d4a853] font-semibold">{a.tool}</span>
-                    <span className="text-slate-400 ml-1.5">{a.reasoning}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap max-h-[500px] overflow-y-auto">
+            {result.result?.response || "No response"}
+          </div>
         </div>
       )}
 
