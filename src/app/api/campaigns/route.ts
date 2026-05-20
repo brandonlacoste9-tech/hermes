@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCampaigns, getCampaign, getPipelineStats, getRecentActivity, updateLeadStatus } from "@/lib/campaigns/store";
-import { migrateNeonSchema } from "@/lib/neon/client";
+import { migrateSchema } from "@/lib/neon/client";
 
 // Run migration on first API hit
 let migrated = false;
 
 export async function GET(req: NextRequest) {
-  if (!migrated) { await migrateNeonSchema(); migrated = true; }
+  if (!migrated) { await migrateSchema(); migrated = true; }
   const action = req.nextUrl.searchParams.get("action") || "stats";
   const campaignId = req.nextUrl.searchParams.get("campaignId");
   const leadId = req.nextUrl.searchParams.get("leadId");
