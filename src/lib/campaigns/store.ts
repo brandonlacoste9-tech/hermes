@@ -3,7 +3,8 @@ import { supabase, ensureTables } from "@/lib/supabase/client";
 let initialized = false;
 
 export async function init() {
-  if (!initialized) { await ensureTables(); initialized = true; }
+  // Tables exist — skip the check. Created via Supabase SQL editor.
+  initialized = true;
 }
 
 export async function createCampaign(name: string, service: string, niche: string, market: string) {
