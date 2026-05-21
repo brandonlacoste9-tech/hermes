@@ -322,10 +322,8 @@ function lockLead(website: string) {
     if (leads.length > 0) {
       try {
         const campaign = await createCampaign(
-          `${niche} — ${new Date().toLocaleDateString()}`,
-          yourService || niche,
-          niche,
-          market
+          `Bill 96 Hunt — ${new Date().toLocaleDateString()}`,
+          niche
         );
         const savedLeads = await addLeadsToCampaign(campaign.id, leads.map(l => ({
           company: l.name,
