@@ -1,55 +1,21 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+let _supabaseAdmin: SupabaseClient | null = null;
 
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: { persistSession: false },
-});
-
-// ── Schema ──────────────────────────────────────────────────────────────
-
-export async function ensurePipelineTable() {
-  try {
-    await supabaseAdmin.rpc("ensure_pipeline").maybeSingle().catch(() => {});
-  } catch {
-    console.warn("[Supabase] Schema migration deferred — run schema.sql manually");
-  }
+function getAdmin(): SupabaseClient {
+  if (_supabaseAdmin) return _supabaseAdmin;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+  if (!url || !key) throw new Error("Supabase not configured");
+  _supabaseAdmin = createClient(url, key, { auth: { persistSession: false } });
+  return _supabaseAdmin;
 }
 
-// ── Pipeline Operations ─────────────────────────────────────────────────
-
 export async function findLeadByEmail(email: string) {
-  const { data } = await supabaseAdmin
-    .from("leads")
-    .select("*")
-    .eq("email", email)
-    .order("hunted_at", { ascending: false })
-    .limit(1)
-    .single();
+  const { data } = await getAdmin().from("leads").select("*").eq("email", email).order("created_at", { ascending: false }).limit(1).single();
   return data;
 }
 
-export async function updateLeadPipeline(leadId: string, updates: {
-  status: string;
-  sentiment?: string;
-  reply_text?: string;
-}) {
-  const { error } = await supabaseAdmin
-    .from("leads")
-    .update({
-      status: updates.status,
-      notes: updates.sentiment || "",
-      replied_at: new Date().toISOString(),
-    })
-    .eq("id", leadId);
-
-  if (error) throw error;
-  return true;
-}
-
-export async function insertActivity(leadId: string, action: string, detail: string) {
-  await supabaseAdmin.from("leads").update({
-    notes: `${action}: ${detail}`,
-  }).eq("id", leadId).maybeSingle().catch(() => {});
+export async function updateLeadPipeline(leadId: string, updates: { status: string; sentiment?: string; reply_text?: string }) {
+  await getAdmin().from("leads").update({ status: updates.status, replied_at: new Date().toISOString() }).eq("id", leadId);
 }
