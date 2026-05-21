@@ -25,6 +25,18 @@ export async function POST(req: NextRequest) {
     if (lead) await updateLeadPipeline(lead.id, { status: "replied" });
 
     const result = await processReply(body, lead?.id || "unknown");
+    
+    // Telegram alert on reply
+    if (result.intent === "INTERESTED") {
+      const botToken = process.env.TELEGRAM_BOT_TOKEN || "";
+      if (botToken) {
+        fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chat_id: process.env.TELEGRAM_HOME_CHANNEL || "", text: `🔥 REPLY: ${result.intent} (${result.confidence}%)\n📧 ${fromEmail}\n💬 ${body.slice(0, 100)}` }),
+        }).catch(() => {});
+      }
+    }
+
     return NextResponse.json({
       intent: result.intent,
       replySent: result.replySent || false,
